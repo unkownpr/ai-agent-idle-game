@@ -14,24 +14,35 @@ async function click(agent) {
 
   const clickPower = parseFloat(agent.click_power);
   const karma = parseFloat(agent.karma);
-  const goldEarned = clickPower * karma;
+  const prestigeMultiplier = parseFloat(agent.prestige_multiplier) || 1;
+  const goldEarned = clickPower * karma * prestigeMultiplier;
   const xpGained = balance.CLICK_XP;
 
   const newXp = parseInt(agent.xp) + xpGained;
   const { level, xp, leveledUp } = checkLevelUp(agent.level, newXp);
 
+  // Calculate skill points earned from level ups
+  const levelsGained = level - agent.level;
+  const skillPointsEarned = levelsGained;
+
   // Atomic gold addition via RPC + update other fields
   await supabase.rpc('add_gold', { p_agent_id: agent.id, p_amount: goldEarned });
 
+  const updateData = {
+    xp: xp,
+    level: level,
+    total_clicks: parseInt(agent.total_clicks) + 1,
+    total_gold_earned: parseFloat(agent.total_gold_earned) + goldEarned,
+    last_click_at: new Date().toISOString(),
+  };
+
+  if (skillPointsEarned > 0) {
+    updateData.skill_points = (parseInt(agent.skill_points) || 0) + skillPointsEarned;
+  }
+
   const { data, error } = await supabase
     .from('agents')
-    .update({
-      xp: xp,
-      level: level,
-      total_clicks: parseInt(agent.total_clicks) + 1,
-      total_gold_earned: parseFloat(agent.total_gold_earned) + goldEarned,
-      last_click_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', agent.id)
     .select(AGENT_PUBLIC_FIELDS)
     .single();
@@ -45,11 +56,18 @@ async function click(agent) {
     click_power_at: clickPower,
   });
 
+  // Fire-and-forget quest progress
+  try {
+    const questService = require('./questService');
+    questService.updateProgress(agent.id, 'click', 1).catch(() => {});
+  } catch (e) {}
+
   return {
     goldEarned: Math.round(goldEarned * 100) / 100,
     xpGained,
     leveledUp,
     newLevel: level,
+    skillPointsEarned,
     agent: data,
   };
 }

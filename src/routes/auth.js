@@ -23,6 +23,14 @@ router.post(
   controller.verifyMoltbook
 );
 
+router.post(
+  '/auth/moltbook',
+  validate(Joi.object({
+    moltbookToken: Joi.string().required(),
+  })),
+  controller.loginWithMoltbook
+);
+
 router.get('/me', auth, controller.getMe);
 
 module.exports = router;

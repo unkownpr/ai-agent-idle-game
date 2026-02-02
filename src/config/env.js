@@ -14,6 +14,5 @@ module.exports = {
   supabaseUrl: process.env.SUPABASE_URL,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
-  moltbookApiUrl: process.env.MOLTBOOK_API_URL || null,
-  moltbookApiKey: process.env.MOLTBOOK_API_KEY || null,
+  moltbookAppKey: process.env.MOLTBOOK_APP_KEY || null,
 };

@@ -205,6 +205,12 @@ async function donate(agent, amount) {
     .update({ treasury: parseFloat(alliance.treasury) + amount })
     .eq('id', alliance.id);
 
+  // Fire-and-forget quest progress
+  try {
+    const questService = require('./questService');
+    questService.updateProgress(agent.id, 'donate', amount).catch(() => {});
+  } catch (e) {}
+
   return { donated: amount, newTreasury: parseFloat(alliance.treasury) + amount };
 }
 

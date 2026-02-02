@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 
 const errorHandler = require('./middleware/errorHandler');
@@ -19,6 +18,12 @@ const marketRoutes = require('./routes/market');
 const eventRoutes = require('./routes/event');
 const leaderboardRoutes = require('./routes/leaderboard');
 const chatRoutes = require('./routes/chat');
+const changelogRoutes = require('./routes/changelog');
+const prestigeRoutes = require('./routes/prestige');
+const skillRoutes = require('./routes/skill');
+const dungeonRoutes = require('./routes/dungeon');
+const questRoutes = require('./routes/quest');
+const worldBossRoutes = require('./routes/worldBoss');
 
 function createApp() {
   const app = express();
@@ -34,14 +39,20 @@ function createApp() {
     keyFn: (req) => req.headers['x-api-key'] || req.ip,
   }));
 
-  // Swagger docs (only in development)
-  if (env.nodeEnv !== 'production') {
-    try {
-      const swaggerDoc = YAML.load(path.join(__dirname, '..', 'swagger.yaml'));
-      app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
-    } catch {
-      // swagger.yaml not found, skip docs
-    }
+  // Swagger docs
+  try {
+    const swaggerDoc = YAML.load(path.join(__dirname, '..', 'swagger.yaml'));
+    app.get('/docs/swagger.json', (req, res) => res.json(swaggerDoc));
+    app.get('/docs', (req, res) => {
+      res.send(`<!DOCTYPE html><html><head><title>API Docs</title>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head><body><div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>SwaggerUIBundle({url:'/docs/swagger.json',dom_id:'#swagger-ui',deepLinking:true})</script>
+</body></html>`);
+    });
+  } catch {
+    // swagger.yaml not found, skip docs
   }
 
   // Static frontend
@@ -69,6 +80,12 @@ function createApp() {
   app.use(api, eventRoutes);
   app.use(api, leaderboardRoutes);
   app.use(api, chatRoutes);
+  app.use(api, changelogRoutes);
+  app.use(api, prestigeRoutes);
+  app.use(api, skillRoutes);
+  app.use(api, dungeonRoutes);
+  app.use(api, questRoutes);
+  app.use(api, worldBossRoutes);
 
   // 404
   app.use((req, res) => {

@@ -31,4 +31,24 @@ module.exports = {
     windowMs: 5 * 1000,
     maxRequests: 2,
   },
+  prestige: {
+    windowMs: 60 * 1000,
+    maxRequests: 1,
+  },
+  skill: {
+    windowMs: 2 * 1000,
+    maxRequests: 2,
+  },
+  dungeon: {
+    windowMs: 3 * 1000,
+    maxRequests: 1,
+  },
+  quest: {
+    windowMs: 5 * 1000,
+    maxRequests: 2,
+  },
+  worldBoss: {
+    windowMs: 30 * 1000,
+    maxRequests: 1,
+  },
 };

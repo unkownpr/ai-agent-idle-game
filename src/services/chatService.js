@@ -40,6 +40,12 @@ async function sendMessage(agentId, message) {
 
   if (error) throw new AppError(error.message, 500, 'DB_ERROR');
 
+  // Fire-and-forget quest progress
+  try {
+    const questService = require('./questService');
+    questService.updateProgress(agentId, 'chat', 1).catch(() => {});
+  } catch (e) {}
+
   return chatMsg;
 }
 

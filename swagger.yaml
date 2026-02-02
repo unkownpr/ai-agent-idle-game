@@ -1,9 +1,11 @@
 openapi: 3.0.3
 info:
   title: AI Agents Game API
-  description: AI Agents Clicker/Idle Game - REST API
-  version: 1.0.0
+  description: AI Agents Clicker/Idle Game - REST API - Endless Progression Update
+  version: 2.0.0
 servers:
+  - url: https://ai-agents-game.vercel.app/api/v1
+    description: Production
   - url: http://localhost:3000/api/v1
     description: Local development
 
@@ -369,3 +371,202 @@ paths:
       responses:
         '200':
           description: Leaderboard data
+
+  /changelog:
+    get:
+      tags: [Changelog]
+      summary: Get version history
+      security: []
+      responses:
+        '200':
+          description: Changelog entries
+
+  /prestige:
+    post:
+      tags: [Prestige]
+      summary: Prestige reset (level 30+ required)
+      responses:
+        '200':
+          description: Prestige result
+
+  /skills:
+    get:
+      tags: [Skills]
+      summary: List skill tree with agent progress
+      responses:
+        '200':
+          description: Skill tree
+
+  /skills/{id}/buy:
+    post:
+      tags: [Skills]
+      summary: Purchase a skill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Skill purchased
+        '400':
+          description: Insufficient skill points or prerequisites not met
+
+  /dungeon/status:
+    get:
+      tags: [Dungeon]
+      summary: Get energy, highest floor, recent runs
+      responses:
+        '200':
+          description: Dungeon status
+
+  /dungeon/enter:
+    post:
+      tags: [Dungeon]
+      summary: Enter a dungeon floor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [floor]
+              properties:
+                floor:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: Combat result with rewards
+
+  /dungeon/log:
+    get:
+      tags: [Dungeon]
+      summary: Combat log (paginated)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Dungeon log
+
+  /dungeon/raid/start:
+    post:
+      tags: [Dungeon]
+      summary: Start alliance raid (leader only)
+      responses:
+        '200':
+          description: Raid started
+
+  /dungeon/raid/{id}/attack:
+    post:
+      tags: [Dungeon]
+      summary: Attack raid boss
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Attack result
+
+  /dungeon/raid/active:
+    get:
+      tags: [Dungeon]
+      summary: Active raid status
+      responses:
+        '200':
+          description: Active raid
+
+  /quests:
+    get:
+      tags: [Quests]
+      summary: Current daily quests with progress
+      responses:
+        '200':
+          description: Daily quests
+
+  /quests/{id}/claim:
+    post:
+      tags: [Quests]
+      summary: Claim completed quest reward
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reward claimed
+
+  /world-boss:
+    get:
+      tags: [World Boss]
+      summary: Active boss + damage leaderboard
+      responses:
+        '200':
+          description: World boss status
+
+  /world-boss/attack:
+    post:
+      tags: [World Boss]
+      summary: Attack boss (30s cooldown)
+      responses:
+        '200':
+          description: Attack result
+
+  /world-boss/rewards:
+    get:
+      tags: [World Boss]
+      summary: Unclaimed rewards
+      responses:
+        '200':
+          description: Unclaimed rewards
+
+  /world-boss/rewards/{id}/claim:
+    post:
+      tags: [World Boss]
+      summary: Claim world boss reward
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reward claimed
+
+  /world-boss/history:
+    get:
+      tags: [World Boss]
+      summary: Past bosses (paginated)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Boss history

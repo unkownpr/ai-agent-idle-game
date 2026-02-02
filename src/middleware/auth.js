@@ -32,6 +32,24 @@ async function auth(req, res, next) {
       agent.last_tick_at = new Date().toISOString();
     }
 
+    // Energy regeneration
+    const lastEnergyTick = new Date(agent.last_energy_tick || agent.created_at).getTime();
+    const now = Date.now();
+    const minutesElapsed = (now - lastEnergyTick) / 60000;
+    const energyGained = Math.floor(minutesElapsed);
+    if (energyGained > 0) {
+      const maxEnergy = parseInt(agent.max_energy) || 100;
+      const newEnergy = Math.min(maxEnergy, (parseInt(agent.energy) || 0) + energyGained);
+      if (newEnergy !== (parseInt(agent.energy) || 0)) {
+        await supabase.from('agents').update({
+          energy: newEnergy,
+          last_energy_tick: new Date().toISOString(),
+        }).eq('id', agent.id);
+        agent.energy = newEnergy;
+        agent.last_energy_tick = new Date().toISOString();
+      }
+    }
+
     req.agent = agent;
     req.idleEarnings = parseFloat(earnings) || 0;
     next();

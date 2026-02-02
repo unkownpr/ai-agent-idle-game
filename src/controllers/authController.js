@@ -17,8 +17,29 @@ async function register(req, res, next) {
 async function verifyMoltbook(req, res, next) {
   try {
     const { moltbookToken } = req.body;
-    const agent = await authService.verifyMoltbookToken(req.agent.id, moltbookToken);
-    res.json({ message: 'Moltbook verified', karma: agent.karma });
+    const result = await authService.verifyMoltbookToken(req.agent.id, moltbookToken);
+    res.json({
+      message: 'Moltbook verified',
+      karma: result.agent.karma,
+      moltbookAgent: result.moltbookAgent,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function loginWithMoltbook(req, res, next) {
+  try {
+    const { moltbookToken } = req.body;
+    const result = await authService.loginWithMoltbook(moltbookToken);
+    const status = result.isNew ? 201 : 200;
+    res.status(status).json({
+      message: result.isNew ? 'Agent created via Moltbook' : 'Logged in via Moltbook',
+      agent: result.agent,
+      apiKey: result.apiKey,
+      isNew: result.isNew,
+      moltbookAgent: result.moltbookAgent,
+    });
   } catch (err) {
     next(err);
   }
@@ -36,4 +57,4 @@ async function getMe(req, res, next) {
   }
 }
 
-module.exports = { register, verifyMoltbook, getMe };
+module.exports = { register, verifyMoltbook, loginWithMoltbook, getMe };

@@ -4,7 +4,7 @@ const { ConflictError, AppError } = require('../utils/errors');
 const balance = require('../config/gameBalance');
 const { verifyMoltbook } = require('../middleware/moltbookAuth');
 
-const AGENT_PUBLIC_FIELDS = 'id, name, level, xp, gold, gems, click_power, idle_rate, attack_power, defense_power, power_score, karma, total_clicks, total_gold_earned, total_pvp_wins, total_pvp_losses, alliance_id, moltbook_verified, last_click_at, last_tick_at, shield_until, last_attack_at, created_at';
+const AGENT_PUBLIC_FIELDS = 'id, name, level, xp, gold, gems, click_power, idle_rate, attack_power, defense_power, power_score, karma, total_clicks, total_gold_earned, total_pvp_wins, total_pvp_losses, alliance_id, moltbook_verified, last_click_at, last_tick_at, shield_until, last_attack_at, created_at, prestige_level, prestige_multiplier, total_prestiges, skill_points, specialization, energy, max_energy, last_energy_tick, highest_floor';
 
 async function register(name) {
   const apiKey = generateApiKey();
@@ -29,20 +29,12 @@ async function register(name) {
   return { agent: data, apiKey };
 }
 
-async function verifyMoltbookToken(agentId, moltbookToken) {
-  await verifyMoltbook(moltbookToken);
+async function verifyMoltbookToken(agentId, identityToken) {
+  throw new AppError('Moltbook integration is currently disabled', 503, 'SERVICE_UNAVAILABLE');
+}
 
-  const karmaBonus = 1 + balance.MOLTBOOK_KARMA_BONUS;
-
-  const { data, error } = await supabase
-    .from('agents')
-    .update({ moltbook_verified: true, karma: karmaBonus })
-    .eq('id', agentId)
-    .select(AGENT_PUBLIC_FIELDS)
-    .single();
-
-  if (error) throw new AppError(error.message, 500, 'DB_ERROR');
-  return data;
+async function loginWithMoltbook(identityToken) {
+  throw new AppError('Moltbook integration is currently disabled', 503, 'SERVICE_UNAVAILABLE');
 }
 
 async function getAgent(agentId) {
@@ -56,4 +48,4 @@ async function getAgent(agentId) {
   return data;
 }
 
-module.exports = { register, verifyMoltbookToken, getAgent, AGENT_PUBLIC_FIELDS };
+module.exports = { register, verifyMoltbookToken, loginWithMoltbook, getAgent, AGENT_PUBLIC_FIELDS };

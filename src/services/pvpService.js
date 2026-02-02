@@ -83,6 +83,14 @@ async function attack(attacker, targetId) {
       .eq('id', defender.id);
   }
 
+  // Fire-and-forget quest progress
+  try {
+    const questService = require('./questService');
+    if (result.attackerWins) {
+      questService.updateProgress(attacker.id, 'pvp_win', 1).catch(() => {});
+    }
+  } catch (e) {}
+
   // Log PvP
   await supabase.from('pvp_log').insert({
     attacker_id: attacker.id,

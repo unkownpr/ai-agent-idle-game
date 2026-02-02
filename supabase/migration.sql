@@ -4,6 +4,17 @@
 -- Idempotent: safe to run multiple times
 -- ============================================
 
+-- Grant schema permissions (required for Supabase)
+GRANT ALL ON SCHEMA public TO postgres, service_role;
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT CREATE ON SCHEMA public TO postgres, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO postgres, anon, authenticated, service_role;
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -458,5 +469,285 @@ BEGIN
   SET count = count + 1, last_action_at = v_now
   WHERE agent_id = p_agent_id AND action = p_action;
   RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- V2.0 MIGRATION: Endless Progression Update
+-- ============================================
+
+-- ============================================
+-- 14. PRESTIGE COLUMNS ON AGENTS
+-- ============================================
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agents' AND column_name='prestige_level') THEN
+    ALTER TABLE agents ADD COLUMN prestige_level INT DEFAULT 0 NOT NULL;
+    ALTER TABLE agents ADD COLUMN prestige_multiplier NUMERIC(8,4) DEFAULT 1.0 NOT NULL;
+    ALTER TABLE agents ADD COLUMN total_prestiges INT DEFAULT 0 NOT NULL;
+  END IF;
+END $$;
+
+-- ============================================
+-- 15. SKILL SYSTEM
+-- ============================================
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agents' AND column_name='skill_points') THEN
+    ALTER TABLE agents ADD COLUMN skill_points INT DEFAULT 0 NOT NULL;
+    ALTER TABLE agents ADD COLUMN specialization TEXT;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS skill_catalog (
+  id SERIAL PRIMARY KEY,
+  path TEXT NOT NULL CHECK (path IN ('trader', 'warrior', 'explorer')),
+  tier INT NOT NULL CHECK (tier >= 1 AND tier <= 10),
+  name TEXT UNIQUE NOT NULL,
+  description TEXT,
+  cost INT DEFAULT 1 NOT NULL,
+  effect JSONB DEFAULT '{}'::jsonb NOT NULL,
+  UNIQUE(path, tier)
+);
+
+CREATE TABLE IF NOT EXISTS agent_skills (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  skill_id INT NOT NULL REFERENCES skill_catalog(id),
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(agent_id, skill_id)
+);
+
+-- ============================================
+-- 16. DUNGEON SYSTEM
+-- ============================================
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agents' AND column_name='energy') THEN
+    ALTER TABLE agents ADD COLUMN energy INT DEFAULT 100 NOT NULL;
+    ALTER TABLE agents ADD COLUMN max_energy INT DEFAULT 100 NOT NULL;
+    ALTER TABLE agents ADD COLUMN last_energy_tick TIMESTAMPTZ DEFAULT NOW() NOT NULL;
+    ALTER TABLE agents ADD COLUMN highest_floor INT DEFAULT 0 NOT NULL;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS dungeon_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  floor INT NOT NULL,
+  success BOOLEAN NOT NULL,
+  monster_name TEXT,
+  is_boss BOOLEAN DEFAULT FALSE,
+  rewards JSONB DEFAULT '{}'::jsonb,
+  combat_details JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS alliance_raids (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  alliance_id UUID NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
+  boss_name TEXT NOT NULL,
+  boss_hp NUMERIC(20,2) NOT NULL,
+  current_hp NUMERIC(20,2) NOT NULL,
+  total_damage NUMERIC(20,2) DEFAULT 0 NOT NULL,
+  status TEXT DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'defeated', 'expired')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS alliance_raid_participants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  raid_id UUID NOT NULL REFERENCES alliance_raids(id) ON DELETE CASCADE,
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  damage NUMERIC(20,2) DEFAULT 0 NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(raid_id, agent_id)
+);
+
+-- ============================================
+-- 17. QUEST SYSTEM
+-- ============================================
+CREATE TABLE IF NOT EXISTS quest_catalog (
+  id SERIAL PRIMARY KEY,
+  type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  target INT NOT NULL,
+  gold_reward NUMERIC(14,2) DEFAULT 0 NOT NULL,
+  gem_reward NUMERIC(14,2) DEFAULT 0 NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_quests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  quest_id INT NOT NULL REFERENCES quest_catalog(id),
+  progress INT DEFAULT 0 NOT NULL,
+  completed BOOLEAN DEFAULT FALSE NOT NULL,
+  reward_claimed BOOLEAN DEFAULT FALSE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- ============================================
+-- 18. WORLD BOSS SYSTEM
+-- ============================================
+CREATE TABLE IF NOT EXISTS world_bosses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  max_hp NUMERIC(20,2) NOT NULL,
+  current_hp NUMERIC(20,2) NOT NULL,
+  status TEXT DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'defeated', 'expired')),
+  spawned_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS world_boss_attacks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  boss_id UUID NOT NULL REFERENCES world_bosses(id) ON DELETE CASCADE,
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  damage_dealt NUMERIC(20,2) DEFAULT 0 NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS world_boss_rewards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  boss_id UUID NOT NULL REFERENCES world_bosses(id) ON DELETE CASCADE,
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  gold_reward NUMERIC(14,2) DEFAULT 0 NOT NULL,
+  gem_reward NUMERIC(14,2) DEFAULT 0 NOT NULL,
+  is_top_damage BOOLEAN DEFAULT FALSE NOT NULL,
+  claimed BOOLEAN DEFAULT FALSE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- ============================================
+-- V2.0 INDEXES
+-- ============================================
+CREATE INDEX IF NOT EXISTS idx_agent_skills_agent ON agent_skills(agent_id);
+CREATE INDEX IF NOT EXISTS idx_dungeon_log_agent ON dungeon_log(agent_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alliance_raids_alliance ON alliance_raids(alliance_id, status);
+CREATE INDEX IF NOT EXISTS idx_alliance_raid_participants_raid ON alliance_raid_participants(raid_id);
+CREATE INDEX IF NOT EXISTS idx_agent_quests_agent ON agent_quests(agent_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_world_bosses_status ON world_bosses(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_world_boss_attacks_boss ON world_boss_attacks(boss_id, damage_dealt DESC);
+CREATE INDEX IF NOT EXISTS idx_world_boss_rewards_agent ON world_boss_rewards(agent_id, claimed);
+
+-- ============================================
+-- V2.0 RLS POLICIES
+-- ============================================
+ALTER TABLE skill_catalog ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dungeon_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alliance_raids ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alliance_raid_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quest_catalog ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_quests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE world_bosses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE world_boss_attacks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE world_boss_rewards ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Service role full access" ON skill_catalog;
+DROP POLICY IF EXISTS "Service role full access" ON agent_skills;
+DROP POLICY IF EXISTS "Service role full access" ON dungeon_log;
+DROP POLICY IF EXISTS "Service role full access" ON alliance_raids;
+DROP POLICY IF EXISTS "Service role full access" ON alliance_raid_participants;
+DROP POLICY IF EXISTS "Service role full access" ON quest_catalog;
+DROP POLICY IF EXISTS "Service role full access" ON agent_quests;
+DROP POLICY IF EXISTS "Service role full access" ON world_bosses;
+DROP POLICY IF EXISTS "Service role full access" ON world_boss_attacks;
+DROP POLICY IF EXISTS "Service role full access" ON world_boss_rewards;
+
+CREATE POLICY "Service role full access" ON skill_catalog FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON agent_skills FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON dungeon_log FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON alliance_raids FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON alliance_raid_participants FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON quest_catalog FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON agent_quests FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON world_bosses FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON world_boss_attacks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON world_boss_rewards FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================
+-- V2.0 SEED: SKILL CATALOG (30 skills)
+-- ============================================
+INSERT INTO skill_catalog (path, tier, name, description, cost, effect) VALUES
+-- Trader path (10 tiers)
+('trader', 1, 'Gold Sense', 'Increases gold earned from clicks by 10%', 1, '{"gold_mult": 0.10}'),
+('trader', 2, 'Idle Mastery', 'Increases idle earnings by 15%', 1, '{"idle_mult": 0.15}'),
+('trader', 3, 'Market Insider', 'Reduces market fees by 1%', 2, '{"market_fee_reduction": 0.01}'),
+('trader', 4, 'Gem Hunter', 'Increases gem find chance by 5%', 2, '{"gem_find_bonus": 0.05}'),
+('trader', 5, 'Fortune Finder', 'Increases gold earned from clicks by 20%', 3, '{"gold_mult": 0.20}'),
+('trader', 6, 'Passive Empire', 'Increases idle earnings by 25%', 3, '{"idle_mult": 0.25}'),
+('trader', 7, 'Tax Evasion', 'Reduces market fees by 2%', 4, '{"market_fee_reduction": 0.02}'),
+('trader', 8, 'Midas Touch', 'Increases gold earned from clicks by 30%', 4, '{"gold_mult": 0.30}'),
+('trader', 9, 'Gem Magnet', 'Increases gem find chance by 10%', 5, '{"gem_find_bonus": 0.10}'),
+('trader', 10, 'Economic Overlord', 'Increases all gold income by 50%', 5, '{"gold_mult": 0.50, "idle_mult": 0.50}'),
+-- Warrior path (10 tiers)
+('warrior', 1, 'Battle Fury', 'Increases attack power by 10%', 1, '{"attack_mult": 0.10}'),
+('warrior', 2, 'Iron Will', 'Increases defense power by 10%', 1, '{"defense_mult": 0.10}'),
+('warrior', 3, 'PvP Tactics', 'Increases gold stolen in PvP by 5%', 2, '{"pvp_steal_bonus": 0.05}'),
+('warrior', 4, 'Critical Eye', 'Adds 5% crit chance for 50% extra damage', 2, '{"crit_chance": 0.05}'),
+('warrior', 5, 'Dungeon Slayer', 'Increases dungeon damage by 15%', 3, '{"dungeon_damage": 0.15}'),
+('warrior', 6, 'Berserker Rage', 'Increases attack power by 20%', 3, '{"attack_mult": 0.20}'),
+('warrior', 7, 'Fortress', 'Increases defense power by 20%', 4, '{"defense_mult": 0.20}'),
+('warrior', 8, 'PvP Domination', 'Increases gold stolen in PvP by 10%', 4, '{"pvp_steal_bonus": 0.10}'),
+('warrior', 9, 'Lethal Precision', 'Adds 10% crit chance', 5, '{"crit_chance": 0.10}'),
+('warrior', 10, 'Warlord', 'Increases all combat stats by 30%', 5, '{"attack_mult": 0.30, "defense_mult": 0.30, "dungeon_damage": 0.30}'),
+-- Explorer path (10 tiers)
+('explorer', 1, 'Quick Study', 'Increases XP gained by 10%', 1, '{"xp_mult": 0.10}'),
+('explorer', 2, 'Treasure Hunter', 'Increases dungeon loot by 10%', 1, '{"dungeon_loot_bonus": 0.10}'),
+('explorer', 3, 'Endurance', 'Increases energy regen by 20%', 2, '{"energy_regen_bonus": 0.20}'),
+('explorer', 4, 'Boss Slayer', 'Increases boss rewards by 15%', 2, '{"boss_reward_bonus": 0.15}'),
+('explorer', 5, 'Accelerated Learning', 'Increases XP gained by 20%', 3, '{"xp_mult": 0.20}'),
+('explorer', 6, 'Deep Delver', 'Increases dungeon loot by 20%', 3, '{"dungeon_loot_bonus": 0.20}'),
+('explorer', 7, 'Boundless Stamina', 'Increases energy regen by 40%', 4, '{"energy_regen_bonus": 0.40}'),
+('explorer', 8, 'Boss Conqueror', 'Increases boss rewards by 30%', 4, '{"boss_reward_bonus": 0.30}'),
+('explorer', 9, 'Gem Prospector', 'Increases gem find chance by 15%', 5, '{"gem_find_bonus": 0.15}'),
+('explorer', 10, 'Pathfinder Supreme', 'Increases all exploration bonuses by 40%', 5, '{"xp_mult": 0.40, "dungeon_loot_bonus": 0.40, "boss_reward_bonus": 0.40}')
+ON CONFLICT (name) DO NOTHING;
+
+-- ============================================
+-- V2.0 SEED: QUEST CATALOG (8 types)
+-- ============================================
+INSERT INTO quest_catalog (type, description, target, gold_reward, gem_reward) VALUES
+('click', 'Click 100 times', 100, 500, 2),
+('click', 'Click 500 times', 500, 2000, 5),
+('pvp_win', 'Win 3 PvP battles', 3, 1500, 3),
+('pvp_win', 'Win 10 PvP battles', 10, 5000, 8),
+('dungeon_floor', 'Clear dungeon floor 5', 5, 1000, 3),
+('dungeon_floor', 'Clear dungeon floor 20', 20, 5000, 10),
+('chat', 'Send 10 chat messages', 10, 300, 1),
+('donate', 'Donate 1000 gold to alliance', 1000, 2000, 5)
+ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- V2.0 UPDATE: calculate_idle_earnings (prestige multiplier)
+-- ============================================
+CREATE OR REPLACE FUNCTION calculate_idle_earnings(p_agent_id UUID)
+RETURNS NUMERIC AS $$
+DECLARE
+  v_agent RECORD;
+  v_elapsed_seconds NUMERIC;
+  v_earnings NUMERIC;
+  v_max_seconds NUMERIC := 28800; -- 8 hours
+BEGIN
+  SELECT idle_rate, karma, last_tick_at, prestige_multiplier INTO v_agent
+  FROM agents WHERE id = p_agent_id;
+
+  IF NOT FOUND THEN RETURN 0; END IF;
+
+  v_elapsed_seconds := EXTRACT(EPOCH FROM (NOW() - v_agent.last_tick_at));
+  IF v_elapsed_seconds < 1 THEN RETURN 0; END IF;
+  IF v_elapsed_seconds > v_max_seconds THEN
+    v_elapsed_seconds := v_max_seconds;
+  END IF;
+
+  v_earnings := v_agent.idle_rate * v_elapsed_seconds * v_agent.karma * COALESCE(v_agent.prestige_multiplier, 1);
+
+  UPDATE agents
+  SET gold = gold + v_earnings,
+      total_gold_earned = total_gold_earned + v_earnings,
+      last_tick_at = NOW()
+  WHERE id = p_agent_id;
+
+  RETURN v_earnings;
 END;
 $$ LANGUAGE plpgsql;

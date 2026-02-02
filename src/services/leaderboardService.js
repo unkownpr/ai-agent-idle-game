@@ -2,7 +2,7 @@ const supabase = require('../config/supabase');
 const { AppError } = require('../utils/errors');
 
 async function getLeaderboard({ sortBy = 'power_score', page = 1, limit = 20 } = {}) {
-  const allowedSorts = ['power_score', 'gold', 'level', 'total_clicks', 'total_pvp_wins'];
+  const allowedSorts = ['power_score', 'gold', 'level', 'total_clicks', 'total_pvp_wins', 'prestige_level'];
   if (!allowedSorts.includes(sortBy)) sortBy = 'power_score';
 
   const from = (page - 1) * limit;
@@ -10,7 +10,7 @@ async function getLeaderboard({ sortBy = 'power_score', page = 1, limit = 20 } =
 
   const { data, error, count } = await supabase
     .from('agents')
-    .select('id, name, level, power_score, gold, total_clicks, total_pvp_wins, total_pvp_losses, alliance_id', { count: 'exact' })
+    .select('id, name, level, power_score, gold, total_clicks, total_pvp_wins, total_pvp_losses, alliance_id, prestige_level, highest_floor', { count: 'exact' })
     .order(sortBy, { ascending: false })
     .range(from, to);
 
