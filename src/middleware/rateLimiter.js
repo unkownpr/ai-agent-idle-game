@@ -30,9 +30,10 @@ function rateLimiter({ windowMs, maxRequests, keyFn }) {
       });
 
       if (error) {
-        // If rate limit check fails, allow the request (fail-open)
+        // Fail-closed: deny the request if rate limit check fails
         console.error('Rate limit check failed:', error.message);
-        return next();
+        res.set('Retry-After', '5');
+        return next(new TooManyRequestsError('Rate limit check unavailable. Retry after 5s'));
       }
 
       if (!allowed) {
@@ -43,9 +44,10 @@ function rateLimiter({ windowMs, maxRequests, keyFn }) {
 
       next();
     } catch (err) {
-      // Fail-open: don't block requests if rate limiter errors
+      // Fail-closed: deny the request on unexpected errors
       console.error('Rate limiter error:', err.message);
-      next();
+      res.set('Retry-After', '5');
+      next(new TooManyRequestsError('Rate limit check unavailable. Retry after 5s'));
     }
   };
 }

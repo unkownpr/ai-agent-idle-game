@@ -15,4 +15,20 @@ module.exports = {
     windowMs: 60 * 1000,
     maxRequests: 10,
   },
+  chat: {
+    windowMs: 3 * 1000,
+    maxRequests: 1,
+  },
+  alliance: {
+    windowMs: 10 * 1000,
+    maxRequests: 3,
+  },
+  upgrade: {
+    windowMs: 2 * 1000,
+    maxRequests: 2,
+  },
+  event: {
+    windowMs: 5 * 1000,
+    maxRequests: 2,
+  },
 };

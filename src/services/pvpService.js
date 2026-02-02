@@ -3,6 +3,8 @@ const balance = require('../config/gameBalance');
 const { resolveCombat, canAttack } = require('../engine/combatEngine');
 const { NotFoundError, AppError, ForbiddenError } = require('../utils/errors');
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const MAX_PAGE_LIMIT = 100;
 
 async function attack(attacker, targetId) {
@@ -126,6 +128,8 @@ async function getTargets(agent) {
 }
 
 async function getPvpLog(agentId, page = 1, limit = 20) {
+  if (!UUID_RE.test(agentId)) throw new AppError('Invalid agent ID', 400, 'INVALID_ID');
+
   limit = Math.min(Math.max(1, limit), MAX_PAGE_LIMIT);
   page = Math.max(1, page);
 
@@ -135,7 +139,7 @@ async function getPvpLog(agentId, page = 1, limit = 20) {
   const { data, error, count } = await supabase
     .from('pvp_log')
     .select('*', { count: 'exact' })
-    .or(`attacker_id.eq.${agentId},defender_id.eq.${agentId}`)
+    .or('attacker_id.eq.' + agentId + ',defender_id.eq.' + agentId)
     .order('created_at', { ascending: false })
     .range(from, to);
 

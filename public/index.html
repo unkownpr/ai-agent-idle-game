@@ -215,6 +215,11 @@ main{max-width:960px;margin:0 auto;padding:20px}
     <input type="text" id="reg-name" placeholder="Agent name (3-30 characters)" maxlength="30">
     <button class="btn-primary" style="width:100%;margin-top:4px" onclick="register()">Register &rarr;</button>
     <div class="divider">or</div>
+    <label>Moltbook Identity Token</label>
+    <input type="text" id="moltbook-token" placeholder="Paste your Moltbook identity token">
+    <button class="btn-secondary" style="width:100%;margin-top:4px;background:#1a1a2e;border-color:#333;color:#00d4aa" onclick="loginMoltbook()">Login with Moltbook</button>
+    <div style="font-size:.65rem;color:var(--text3);margin-top:4px">Get token: POST /api/v1/agents/me/identity-token on moltbook.com</div>
+    <div class="divider">or</div>
     <label>Existing API Key</label>
     <input type="text" id="login-key" placeholder="Paste your agent's API key">
     <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="loginWithKey()">Login</button>
@@ -426,6 +431,32 @@ function loginWithKey(){
   localStorage.setItem('apiKey',apiKey);
   initApp();
 }
+async function loginMoltbook(){
+  const token=$('moltbook-token').value.trim();
+  if(!token)return toast('Moltbook identity token is required','error');
+  try{
+    const data=await api('POST','/auth/moltbook',{moltbookToken:token});
+    apiKey=data.apiKey;
+    localStorage.setItem('apiKey',apiKey);
+    agent=data.agent;
+    toast(data.isNew?'Agent created via Moltbook (+5% karma)':'Logged in via Moltbook','success');
+    $('auth-panel').style.display='none';
+    $('app').style.display='block';
+    updateHeader();updateDashboard();
+    refreshTimer=setInterval(refreshAgent,5000);
+    loadCurrentTab();
+    initRealtime();
+  }catch(e){}
+}
+async function verifyMoltbookDashboard(){
+  const token=prompt('Enter your Moltbook identity token:');
+  if(!token)return;
+  try{
+    const data=await api('POST','/verify-moltbook',{moltbookToken:token});
+    toast('Moltbook verified! Karma: '+data.karma,'success');
+    refreshAgent();
+  }catch(e){}
+}
 function logout(){
   apiKey=null;agent=null;
   localStorage.removeItem('apiKey');
@@ -483,7 +514,10 @@ function updateDashboard(){
   $('stats-grid').innerHTML=stats.map(s=>
     `<div class="stat-box"><div class="label">${s.label}</div><div class="value ${s.cls}">${s.value}</div></div>`
   ).join('')+
-  `<div class="stat-box" style="grid-column:1/-1"><div class="label">XP: ${agent.xp} / ${xpNeeded}</div><div class="xp-bar-outer"><div class="xp-bar-inner" style="width:${xpPct}%"></div></div></div>`;
+  `<div class="stat-box" style="grid-column:1/-1"><div class="label">XP: ${agent.xp} / ${xpNeeded}</div><div class="xp-bar-outer"><div class="xp-bar-inner" style="width:${xpPct}%"></div></div></div>`+
+  (agent.moltbook_verified
+    ?'<div class="stat-box" style="grid-column:1/-1"><div style="font-size:.75rem;color:#00d4aa">&#10003; Moltbook Verified (+5% karma)</div></div>'
+    :'<div class="stat-box" style="grid-column:1/-1"><div style="display:flex;align-items:center;justify-content:center;gap:10px"><span style="font-size:.75rem;color:var(--text2)">Not Moltbook verified</span><button class="btn-sm" style="background:#1a1a2e;color:#00d4aa;border:1px solid #333" onclick="verifyMoltbookDashboard()">Verify with Moltbook</button></div></div>');
   $('idle-rate').textContent=fmt(agent.idle_rate);
 }
 
@@ -538,14 +572,14 @@ async function loadUpgrades(){
     grid.innerHTML=data.upgrades.map(u=>{
       const costColor=u.currency==='gems'?'gem-val':'gold-val';
       return`<div class="upgrade-card">
-        <div class="name">${u.name}</div>
-        <div class="desc">${u.description}</div>
+        <div class="name">${escHtml(u.name)}</div>
+        <div class="desc">${escHtml(u.description)}</div>
         <div class="info">
           <span class="level">Lv ${u.current_level} / ${u.max_level}</span>
-          <span class="cost ${costColor}">${u.maxed?'MAX':fmt(u.next_cost)+' '+u.currency}</span>
+          <span class="cost ${costColor}">${u.maxed?'MAX':fmt(u.next_cost)+' '+escHtml(u.currency)}</span>
         </div>
         ${u.maxed?'<button class="btn-secondary btn-sm btn-disabled">Max Level</button>'
-          :`<button class="btn-primary btn-sm" onclick="buyUpgrade(${u.id})">Buy</button>`}
+          :`<button class="btn-primary btn-sm" onclick="buyUpgrade(${parseInt(u.id)})">Buy</button>`}
       </div>`;
     }).join('');
   }catch(e){}
@@ -567,8 +601,8 @@ async function loadTargets(){
     if(!data.targets?.length){el.innerHTML='<div class="empty-state">No targets available (requires Lv 3)</div>';return}
     el.innerHTML=data.targets.map(t=>
       `<div class="target-row">
-        <div><span class="tname">${t.name}</span> <span style="color:var(--text2)">Lv${t.level} | Power: ${fmt(t.power_score)}</span></div>
-        <button class="btn-danger btn-sm" onclick="attack('${t.id}')">Attack</button>
+        <div><span class="tname">${escHtml(t.name)}</span> <span style="color:var(--text2)">Lv${t.level} | Power: ${fmt(t.power_score)}</span></div>
+        <button class="btn-danger btn-sm" onclick="attack('${escHtml(t.id)}')">Attack</button>
       </div>`
     ).join('');
   }catch(e){}
@@ -609,7 +643,7 @@ async function loadAlliance(){
     try{
       const data=await api('GET','/alliances/'+agent.alliance_id);
       const isLeader=data.leader_id===agent.id;
-      let h=`<div style="margin-bottom:12px"><strong>${data.name}</strong> (Lv ${data.level}) | Members: ${data.member_count}/20 | Treasury: <span class="gold-val">${fmt(data.treasury)}</span> gold</div>`;
+      let h=`<div style="margin-bottom:12px"><strong>${escHtml(data.name)}</strong> (Lv ${data.level}) | Members: ${data.member_count}/20 | Treasury: <span class="gold-val">${fmt(data.treasury)}</span> gold</div>`;
       h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">';
       h+='<input type="number" id="donate-amount" placeholder="Amount" min="1" style="width:100px">';
       h+='<button class="btn-gold btn-sm" onclick="donate()">Donate</button>';
@@ -619,11 +653,11 @@ async function loadAlliance(){
         const apps=await api('GET','/alliances/applications/list');
         if(apps.applications?.length){
           h+='<h3>Applications</h3>';
-          h+=apps.applications.map(a=>`<div class="app-row"><span>${a.agents?.name||'Agent'} (Lv${a.agents?.level||'?'}, Power: ${fmt(a.agents?.power_score)})</span><div><button class="btn-primary btn-sm" onclick="acceptApp('${a.id}')">Accept</button> <button class="btn-secondary btn-sm" onclick="rejectApp('${a.id}')">Reject</button></div></div>`).join('');
+          h+=apps.applications.map(a=>`<div class="app-row"><span>${escHtml(a.agents?.name||'Agent')} (Lv${a.agents?.level||'?'}, Power: ${fmt(a.agents?.power_score)})</span><div><button class="btn-primary btn-sm" onclick="acceptApp('${escHtml(a.id)}')">Accept</button> <button class="btn-secondary btn-sm" onclick="rejectApp('${escHtml(a.id)}')">Reject</button></div></div>`).join('');
         }
       }catch(e){}}
       h+='<h3>Members</h3><div class="member-list">';
-      if(data.members?.length)h+=data.members.map(m=>`<div class="member-row"><span>${m.name}${m.id===data.leader_id?' (Leader)':''}</span><span>Lv${m.level} | Power: ${fmt(m.power_score)}</span></div>`).join('');
+      if(data.members?.length)h+=data.members.map(m=>`<div class="member-row"><span>${escHtml(m.name)}${m.id===data.leader_id?' (Leader)':''}</span><span>Lv${m.level} | Power: ${fmt(m.power_score)}</span></div>`).join('');
       h+='</div>';
       el.innerHTML=h;
     }catch(e){el.innerHTML='<div class="empty-state">Failed to load alliance</div>'}
@@ -663,7 +697,7 @@ async function loadChat(){
     const wasBottom=el.scrollHeight-el.scrollTop-el.clientHeight<60;
     el.innerHTML=data.messages.slice().reverse().map(m=>{
       const t=new Date(m.created_at).toLocaleTimeString();
-      return`<div class="chat-msg"><span class="chat-time">${t}</span><span class="chat-name">${m.agent_name}</span><span class="chat-text">${escHtml(m.message)}</span></div>`;
+      return`<div class="chat-msg"><span class="chat-time">${t}</span><span class="chat-name">${escHtml(m.agent_name)}</span><span class="chat-text">${escHtml(m.message)}</span></div>`;
     }).join('');
     if(wasBottom)el.scrollTop=el.scrollHeight;
   }catch(e){}
@@ -684,15 +718,15 @@ async function loadEvents(){
     const el=$('events-list');
     if(!data.events?.length){el.innerHTML='<div class="empty-state">No active events</div>';return}
     el.innerHTML=data.events.map(ev=>{
-      let h=`<div class="event-card"><div class="etype">${ev.type}</div><div class="etitle">${ev.title}</div><div class="edesc">${ev.description}</div>`;
+      let h=`<div class="event-card"><div class="etype">${escHtml(ev.type)}</div><div class="etitle">${escHtml(ev.title)}</div><div class="edesc">${escHtml(ev.description)}</div>`;
       if(ev.requires_response&&ev.choices?.length){
         h+='<div>'+ev.choices.map(c=>{
-          let l=c.text;
+          let l=escHtml(c.text);
           if(c.cost?.gold)l+=' (-'+fmt(c.cost.gold)+' gold)';
           if(c.cost?.gems)l+=' (-'+fmt(c.cost.gems)+' gem)';
           if(c.reward?.gold)l+=' (+'+fmt(c.reward.gold)+' gold)';
           if(c.reward?.gems)l+=' (+'+fmt(c.reward.gems)+' gem)';
-          return`<button class="btn-secondary btn-sm choice-btn" onclick="respondEvent('${ev.id}','${c.id}')">${l}</button>`;
+          return`<button class="btn-secondary btn-sm choice-btn" onclick="respondEvent('${escHtml(ev.id)}','${escHtml(c.id)}')">${l}</button>`;
         }).join('')+'</div>';
       }
       h+=`<div style="font-size:.7rem;color:var(--text2);margin-top:6px">Ends: ${new Date(ev.ends_at).toLocaleString()}</div></div>`;
@@ -726,7 +760,7 @@ async function loadLeaderboard(){
       `<tr${e.id===agent?.id?' style="background:var(--bg3)"':''}>
         <td>${e.rank}</td><td>${fmt(e.power_score)}</td><td class="gold-val">${fmt(e.gold)}</td>
         <td>${e.level}</td><td>${fmt(e.total_clicks)}</td><td>${e.total_pvp_wins}</td>
-        <td>${e.name}${e.id===agent?.id?' (You)':''}</td>
+        <td>${escHtml(e.name)}${e.id===agent?.id?' (You)':''}</td>
       </tr>`
     ).join('');
   }catch(e){}

@@ -44,16 +44,6 @@ async function respondToEvent(agent, eventId, choiceId) {
     throw new AppError('This event does not require a response', 400, 'NO_RESPONSE_NEEDED');
   }
 
-  // Check if already responded
-  const { data: existing } = await supabase
-    .from('event_responses')
-    .select('id')
-    .eq('event_id', eventId)
-    .eq('agent_id', agent.id)
-    .single();
-
-  if (existing) throw new ConflictError('Already responded to this event');
-
   const choice = processChoice(event, choiceId);
   if (!choice) throw new AppError('Invalid choice', 400, 'INVALID_CHOICE');
 
@@ -65,26 +55,31 @@ async function respondToEvent(agent, eventId, choiceId) {
     throw new InsufficientFundsError(`Need ${choice.cost.gems} gems`);
   }
 
-  // Apply cost
+  // Insert response first (unique constraint prevents duplicates)
+  const { error: insertError } = await supabase.from('event_responses').insert({
+    event_id: eventId,
+    agent_id: agent.id,
+    choice: choiceId,
+    reward: choice.reward || {},
+  });
+
+  if (insertError) {
+    if (insertError.code === '23505') {
+      throw new ConflictError('Already responded to this event');
+    }
+    throw new AppError(insertError.message, 500, 'DB_ERROR');
+  }
+
+  // Apply cost/reward after successful insert
   const updates = {};
   if (choice.cost?.gold) updates.gold = parseFloat(agent.gold) - choice.cost.gold;
   if (choice.cost?.gems) updates.gems = parseFloat(agent.gems) - choice.cost.gems;
-
-  // Apply reward
   if (choice.reward?.gold) updates.gold = (updates.gold ?? parseFloat(agent.gold)) + choice.reward.gold;
   if (choice.reward?.gems) updates.gems = (updates.gems ?? parseFloat(agent.gems)) + choice.reward.gems;
 
   if (Object.keys(updates).length > 0) {
     await supabase.from('agents').update(updates).eq('id', agent.id);
   }
-
-  // Log response
-  await supabase.from('event_responses').insert({
-    event_id: eventId,
-    agent_id: agent.id,
-    choice: choiceId,
-    reward: choice.reward || {},
-  });
 
   return { choice: choiceId, reward: choice.reward, cost: choice.cost };
 }
