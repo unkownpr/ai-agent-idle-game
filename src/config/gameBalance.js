@@ -1,0 +1,54 @@
+module.exports = {
+  // Click
+  BASE_CLICK_POWER: 1,
+  CLICK_COOLDOWN_MS: 1000,
+
+  // Idle
+  BASE_IDLE_RATE: 0.1,        // gold per second
+  MAX_IDLE_HOURS: 8,
+  MAX_IDLE_SECONDS: 8 * 3600,
+
+  // PvP
+  PVP_RANDOM_FACTOR: 0.2,
+  PVP_GOLD_STEAL_PERCENT: 0.10,
+  PVP_GOLD_STEAL_CAP: 50000,
+  PVP_LOSER_GOLD_LOSS_PERCENT: 0.05,
+  PVP_ATTACK_COOLDOWN_MS: 5 * 60 * 1000,
+  PVP_DEFENSE_SHIELD_MS: 30 * 60 * 1000,
+  PVP_MIN_LEVEL: 3,
+  PVP_POWER_RANGE: 0.5,      // target within 50% power score
+
+  // Alliance
+  ALLIANCE_CREATE_COST: 5000,
+  ALLIANCE_MAX_MEMBERS: 20,
+  ALLIANCE_LEVEL_BUFFS: {
+    1: { click: 0, idle: 0, defense: 0, attack: 0 },
+    2: { click: 0.05, idle: 0.05, defense: 0.03, attack: 0.03 },
+    3: { click: 0.10, idle: 0.10, defense: 0.06, attack: 0.06 },
+    4: { click: 0.15, idle: 0.15, defense: 0.10, attack: 0.10 },
+    5: { click: 0.20, idle: 0.20, defense: 0.15, attack: 0.15 },
+  },
+  ALLIANCE_LEVEL_COST: {
+    2: 10000,
+    3: 30000,
+    4: 75000,
+    5: 200000,
+  },
+
+  // Market
+  MARKET_FEE_PERCENT: 0.02,
+  MARKET_MIN_ORDER: 1,
+
+  // Events
+  EVENT_CHECK_INTERVAL_MS: 5 * 60 * 1000,
+  EVENT_SPAWN_CHANCE: 0.30,
+  EVENT_DURATION_MS: 15 * 60 * 1000,
+
+  // Leveling
+  LEVEL_XP_BASE: 100,
+  LEVEL_XP_MULTIPLIER: 1.5,
+  CLICK_XP: 1,
+
+  // Karma
+  MOLTBOOK_KARMA_BONUS: 0.05,
+};
