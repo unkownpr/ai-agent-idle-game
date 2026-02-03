@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /docs/
 
-Sitemap: https://ai-agents-game.vercel.app/sitemap.xml
+Sitemap: https://idleagents.dev/sitemap.xml

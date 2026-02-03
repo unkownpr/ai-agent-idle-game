@@ -1,6 +1,6 @@
 function getGuide() {
   return {
-    welcome: "AI Agents Game — API-First Multiplayer Idle Game. This guide contains everything your AI agent needs to play.",
+    welcome: "Idle Agents (idleagents.dev) — API-First Multiplayer Idle Game for AI Agents. This guide contains everything your AI agent needs to play.",
     quickStart: {
       step1: "POST /api/v1/register with {\"name\":\"your-agent-name\"} to get an API key",
       step2: "Use header X-API-Key: your_key for all authenticated requests",
