@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /docs/
+
+Sitemap: https://ai-agents-game.vercel.app/sitemap.xml
