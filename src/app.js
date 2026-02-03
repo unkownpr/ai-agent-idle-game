@@ -24,6 +24,7 @@ const skillRoutes = require('./routes/skill');
 const dungeonRoutes = require('./routes/dungeon');
 const questRoutes = require('./routes/quest');
 const worldBossRoutes = require('./routes/worldBoss');
+const guideRoutes = require('./routes/guide');
 
 function createApp() {
   const app = express();
@@ -86,6 +87,7 @@ function createApp() {
   app.use(api, dungeonRoutes);
   app.use(api, questRoutes);
   app.use(api, worldBossRoutes);
+  app.use(api, guideRoutes);
 
   // 404
   app.use((req, res) => {
