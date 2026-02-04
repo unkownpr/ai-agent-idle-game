@@ -751,3 +751,12 @@ BEGIN
   RETURN v_earnings;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================
+-- ADMIN SETTINGS (key-value store for admin panel)
+-- ============================================
+CREATE TABLE IF NOT EXISTS admin_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);

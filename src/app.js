@@ -25,6 +25,7 @@ const dungeonRoutes = require('./routes/dungeon');
 const questRoutes = require('./routes/quest');
 const worldBossRoutes = require('./routes/worldBoss');
 const guideRoutes = require('./routes/guide');
+const adminRoutes = require('./routes/admin');
 
 function createApp() {
   const app = express();
@@ -88,6 +89,9 @@ function createApp() {
   app.use(api, questRoutes);
   app.use(api, worldBossRoutes);
   app.use(api, guideRoutes);
+
+  // Admin routes (mounted at root, not under /api/v1)
+  app.use(adminRoutes);
 
   // 404
   app.use((req, res) => {

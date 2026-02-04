@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin — Idle Agents</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#101014;--bg2:#18181c;--bg3:#222228;--bg4:#2c2c34;
+  --border:#2e2e3a;--text:#c9cad0;--text2:#6b6b7b;--text3:#44445a;
+  --accent:#ff6b35;--accent2:#e55a2b;--accent-glow:rgba(255,107,53,.15);
+  --cyan:#22d3ee;--red:#ef4444;--green:#34d399;
+  --gold:#facc15;--gem:#c084fc;--blue:#60a5fa;
+  --radius:8px;
+}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;font-size:.85rem}
+a{color:var(--cyan);text-decoration:none}
+::selection{background:var(--accent);color:#000}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:var(--radius);font-size:.8rem;padding:7px 14px;transition:all .15s}
+input,select{font-family:inherit;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:var(--radius);font-size:.8rem;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--accent)}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-size:.78rem}
+th{color:var(--text2);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px}
+tr:hover{background:var(--bg3)}
+
+/* Toast */
+#toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:10px 16px;border-radius:var(--radius);font-size:.78rem;animation:slideIn .25s;max-width:340px;border-left:3px solid var(--accent);background:var(--bg2)}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Login */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:32px;width:100%;max-width:380px}
+.login-box h1{font-size:1.1rem;color:#fff;margin-bottom:4px}
+.login-box p{color:var(--text2);font-size:.75rem;margin-bottom:20px}
+.login-box label{display:block;font-size:.72rem;color:var(--text2);margin-bottom:4px;margin-top:12px}
+.login-box input{width:100%}
+.btn-primary{background:var(--accent);color:#fff;font-weight:600;width:100%;padding:10px;margin-top:16px}
+.btn-primary:hover{background:var(--accent2)}
+
+/* Layout */
+#app{display:none;height:100vh;overflow:hidden}
+.layout{display:grid;grid-template-columns:220px 1fr;height:100vh}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar .brand{padding:0 16px 16px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.sidebar .brand h2{font-size:.9rem;color:#fff}
+.sidebar .brand span{font-size:.65rem;color:var(--text2)}
+.nav-item{display:block;padding:8px 16px;color:var(--text2);font-size:.78rem;cursor:pointer;transition:all .1s;border-left:3px solid transparent}
+.nav-item:hover{color:var(--text);background:var(--bg3)}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-glow)}
+.sidebar-footer{margin-top:auto;padding:12px 16px;border-top:1px solid var(--border)}
+
+.main{overflow-y:auto;padding:24px}
+.main h2{font-size:1rem;color:#fff;margin-bottom:16px}
+
+/* Cards */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.stat-card .label{font-size:.68rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.stat-card .value{font-size:1.3rem;font-weight:700;color:#fff;margin-top:4px}
+.stat-card .value.gold{color:var(--gold)}
+.stat-card .value.gem{color:var(--gem)}
+.stat-card .value.green{color:var(--green)}
+.stat-card .value.cyan{color:var(--cyan)}
+.stat-card .value.red{color:var(--red)}
+
+/* Toolbar */
+.toolbar{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:200px}
+.btn{background:var(--bg3);color:var(--text);padding:7px 14px;border-radius:var(--radius);font-size:.78rem;cursor:pointer;border:1px solid var(--border)}
+.btn:hover{background:var(--bg4)}
+.btn-danger{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.3)}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+.btn-sm{padding:4px 10px;font-size:.72rem}
+
+/* Pagination */
+.pagination{display:flex;gap:8px;margin-top:16px;align-items:center;justify-content:center}
+.pagination .info{font-size:.72rem;color:var(--text2)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:24px;min-width:400px;max-width:560px;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:.9rem;color:#fff;margin-bottom:16px}
+.modal label{display:block;font-size:.72rem;color:var(--text2);margin-bottom:3px;margin-top:10px}
+.modal input{width:100%}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+
+/* Section visibility */
+.section{display:none}
+.section.active{display:block}
+</style>
+</head>
+<body>
+<div id="toast-container"></div>
+
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Idle Agents Admin</h1>
+    <p>Enter your credentials to continue</p>
+    <label>Email</label>
+    <input type="email" id="login-email" autocomplete="email">
+    <label>Password</label>
+    <input type="password" id="login-password" autocomplete="current-password">
+    <button class="btn-primary" id="login-btn">Login</button>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="layout">
+    <div class="sidebar">
+      <div class="brand">
+        <h2>Admin Panel</h2>
+        <span>Idle Agents</span>
+      </div>
+      <div class="nav-item active" data-tab="dashboard">Dashboard</div>
+      <div class="nav-item" data-tab="agents">Agents</div>
+      <div class="nav-item" data-tab="alliances">Alliances</div>
+      <div class="nav-item" data-tab="market">Market</div>
+      <div class="nav-item" data-tab="chat">Chat</div>
+      <div class="nav-item" data-tab="pvp">PvP Log</div>
+      <div class="nav-item" data-tab="events">Events</div>
+      <div class="nav-item" data-tab="world-bosses">World Boss</div>
+      <div class="nav-item" data-tab="dungeons">Dungeons</div>
+      <div class="nav-item" data-tab="settings">Settings</div>
+      <div class="sidebar-footer">
+        <button class="btn btn-sm" id="logout-btn">Logout</button>
+      </div>
+    </div>
+    <div class="main">
+      <!-- Dashboard -->
+      <div class="section active" id="sec-dashboard">
+        <h2>Dashboard</h2>
+        <div class="stat-grid" id="dashboard-stats"></div>
+      </div>
+
+      <!-- Agents -->
+      <div class="section" id="sec-agents">
+        <h2>Agents</h2>
+        <div class="toolbar">
+          <input type="text" id="agent-search" placeholder="Search by name...">
+          <button class="btn" id="agent-search-btn">Search</button>
+        </div>
+        <table><thead><tr><th>Name</th><th>Level</th><th>Gold</th><th>Gems</th><th>Power</th><th>Karma</th><th>Created</th><th>Actions</th></tr></thead><tbody id="agents-tbody"></tbody></table>
+        <div class="pagination" id="agents-pagination"></div>
+      </div>
+
+      <!-- Alliances -->
+      <div class="section" id="sec-alliances">
+        <h2>Alliances</h2>
+        <table><thead><tr><th>Name</th><th>Leader</th><th>Members</th><th>Level</th><th>Treasury</th><th>Actions</th></tr></thead><tbody id="alliances-tbody"></tbody></table>
+        <div class="pagination" id="alliances-pagination"></div>
+      </div>
+
+      <!-- Market -->
+      <div class="section" id="sec-market">
+        <h2>Market Orders</h2>
+        <div class="toolbar">
+          <select id="market-status"><option value="open">Open</option><option value="filled">Filled</option><option value="cancelled">Cancelled</option></select>
+          <button class="btn" id="market-filter-btn">Filter</button>
+        </div>
+        <table><thead><tr><th>ID</th><th>Side</th><th>Price</th><th>Qty</th><th>Filled</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody id="market-tbody"></tbody></table>
+        <div class="pagination" id="market-pagination"></div>
+      </div>
+
+      <!-- Chat -->
+      <div class="section" id="sec-chat">
+        <h2>Chat Messages</h2>
+        <table><thead><tr><th>Agent</th><th>Message</th><th>Time</th><th>Actions</th></tr></thead><tbody id="chat-tbody"></tbody></table>
+        <div class="pagination" id="chat-pagination"></div>
+      </div>
+
+      <!-- PvP -->
+      <div class="section" id="sec-pvp">
+        <h2>PvP Log</h2>
+        <table><thead><tr><th>Attacker</th><th>Defender</th><th>A.Power</th><th>D.Power</th><th>Winner</th><th>Gold Xfer</th><th>Time</th></tr></thead><tbody id="pvp-tbody"></tbody></table>
+        <div class="pagination" id="pvp-pagination"></div>
+      </div>
+
+      <!-- Events -->
+      <div class="section" id="sec-events">
+        <h2>Events</h2>
+        <table><thead><tr><th>ID</th><th>Type</th><th>Starts</th><th>Ends</th><th>Requires Response</th></tr></thead><tbody id="events-tbody"></tbody></table>
+        <div class="pagination" id="events-pagination"></div>
+      </div>
+
+      <!-- World Boss -->
+      <div class="section" id="sec-world-bosses">
+        <h2>World Bosses</h2>
+        <table><thead><tr><th>ID</th><th>Status</th><th>Current HP</th><th>Spawned</th><th>Expires</th></tr></thead><tbody id="world-bosses-tbody"></tbody></table>
+        <div class="pagination" id="world-bosses-pagination"></div>
+      </div>
+
+      <!-- Dungeons -->
+      <div class="section" id="sec-dungeons">
+        <h2>Dungeon Log</h2>
+        <table><thead><tr><th>Agent</th><th>Floor</th><th>Monster</th><th>Boss?</th><th>Success</th><th>Rewards</th><th>Time</th></tr></thead><tbody id="dungeons-tbody"></tbody></table>
+        <div class="pagination" id="dungeons-pagination"></div>
+      </div>
+
+      <!-- Settings -->
+      <div class="section" id="sec-settings">
+        <h2>Settings</h2>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;max-width:400px">
+          <h3 style="font-size:.85rem;color:#fff;margin-bottom:12px">Change Password</h3>
+          <label style="display:block;font-size:.72rem;color:var(--text2);margin-bottom:3px">Current Password</label>
+          <input type="password" id="settings-current-pw" style="width:100%;margin-bottom:8px">
+          <label style="display:block;font-size:.72rem;color:var(--text2);margin-bottom:3px">New Password</label>
+          <input type="password" id="settings-new-pw" style="width:100%;margin-bottom:8px">
+          <label style="display:block;font-size:.72rem;color:var(--text2);margin-bottom:3px">Confirm New Password</label>
+          <input type="password" id="settings-confirm-pw" style="width:100%;margin-bottom:12px">
+          <button class="btn-primary" id="change-pw-btn" style="width:auto;padding:8px 20px">Change Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // --- Helpers ---
+  function toast(msg, type) {
+    const c = document.getElementById('toast-container');
+    const d = document.createElement('div');
+    d.className = 'toast ' + (type || '');
+    d.textContent = msg;
+    c.appendChild(d);
+    setTimeout(() => d.remove(), 3500);
+  }
+
+  function fmt(n) {
+    if (n == null) return '-';
+    const num = Number(n);
+    if (isNaN(num)) return String(n);
+    return num.toLocaleString();
+  }
+
+  function shortDate(s) {
+    if (!s) return '-';
+    return new Date(s).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function shortId(id) {
+    if (!id) return '-';
+    return id.substring(0, 8);
+  }
+
+  async function api(path, opts) {
+    const res = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
+    if (res.status === 401) { showLogin(); throw new Error('Unauthorized'); }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Request failed');
+    return data;
+  }
+
+  // --- Auth ---
+  const loginScreen = document.getElementById('login-screen');
+  const appEl = document.getElementById('app');
+
+  function showLogin() {
+    loginScreen.style.display = 'flex';
+    appEl.style.display = 'none';
+  }
+
+  function showApp() {
+    loginScreen.style.display = 'none';
+    appEl.style.display = 'block';
+    loadDashboard();
+  }
+
+  document.getElementById('login-btn').addEventListener('click', async () => {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) return toast('Fill in all fields', 'error');
+    try {
+      await api('/admin/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      toast('Logged in', 'success');
+      showApp();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  });
+
+  document.getElementById('login-password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('login-btn').click();
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/admin/logout', { method: 'POST', credentials: 'same-origin' });
+    showLogin();
+  });
+
+  // --- Navigation ---
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = document.querySelectorAll('.section');
+  const tabLoaders = {
+    dashboard: loadDashboard,
+    agents: () => loadAgents(1),
+    alliances: () => loadAlliances(1),
+    market: () => loadMarket(1),
+    chat: () => loadChat(1),
+    pvp: () => loadPvp(1),
+    events: () => loadEvents(1),
+    'world-bosses': () => loadWorldBosses(1),
+    dungeons: () => loadDungeons(1),
+    settings: () => {},
+  };
+
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const tab = item.dataset.tab;
+      navItems.forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+      sections.forEach(s => s.classList.remove('active'));
+      document.getElementById('sec-' + tab).classList.add('active');
+      if (tabLoaders[tab]) tabLoaders[tab]();
+    });
+  });
+
+  // --- Dashboard ---
+  async function loadDashboard() {
+    try {
+      const s = await api('/admin/api/dashboard');
+      const grid = document.getElementById('dashboard-stats');
+      grid.innerHTML = '';
+      const cards = [
+        { label: 'Total Agents', value: fmt(s.agents), cls: '' },
+        { label: 'New (24h)', value: fmt(s.newAgents24h), cls: 'green' },
+        { label: 'Alliances', value: fmt(s.alliances), cls: 'cyan' },
+        { label: 'Open Orders', value: fmt(s.openOrders), cls: '' },
+        { label: 'PvP Battles', value: fmt(s.totalPvpBattles), cls: 'red' },
+        { label: 'Chat Messages', value: fmt(s.totalChatMessages), cls: '' },
+        { label: 'Total Gold', value: fmt(s.totalGold), cls: 'gold' },
+        { label: 'Total Gems', value: fmt(s.totalGems), cls: 'gem' },
+        { label: 'Avg Level', value: s.avgLevel, cls: '' },
+        { label: 'Max Level', value: fmt(s.maxLevel), cls: 'cyan' },
+      ];
+      for (const c of cards) {
+        const div = document.createElement('div');
+        div.className = 'stat-card';
+        const lbl = document.createElement('div');
+        lbl.className = 'label';
+        lbl.textContent = c.label;
+        const val = document.createElement('div');
+        val.className = 'value' + (c.cls ? ' ' + c.cls : '');
+        val.textContent = c.value;
+        div.appendChild(lbl);
+        div.appendChild(val);
+        grid.appendChild(div);
+      }
+    } catch (e) {
+      toast('Failed to load dashboard', 'error');
+    }
+  }
+
+  // --- Pagination helper ---
+  function renderPagination(containerId, total, limit, currentPage, loadFn) {
+    const cont = document.getElementById(containerId);
+    cont.innerHTML = '';
+    const totalPages = Math.ceil(total / limit) || 1;
+    const info = document.createElement('span');
+    info.className = 'info';
+    info.textContent = 'Page ' + currentPage + ' of ' + totalPages + ' (' + total + ' total)';
+    cont.appendChild(info);
+    if (currentPage > 1) {
+      const prev = document.createElement('button');
+      prev.className = 'btn btn-sm';
+      prev.textContent = 'Prev';
+      prev.addEventListener('click', () => loadFn(currentPage - 1));
+      cont.appendChild(prev);
+    }
+    if (currentPage < totalPages) {
+      const next = document.createElement('button');
+      next.className = 'btn btn-sm';
+      next.textContent = 'Next';
+      next.addEventListener('click', () => loadFn(currentPage + 1));
+      cont.appendChild(next);
+    }
+  }
+
+  // --- Agents ---
+  document.getElementById('agent-search-btn').addEventListener('click', () => loadAgents(1));
+  document.getElementById('agent-search').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loadAgents(1);
+  });
+
+  async function loadAgents(page) {
+    try {
+      const search = document.getElementById('agent-search').value.trim();
+      const data = await api('/admin/api/agents?page=' + page + '&limit=20&search=' + encodeURIComponent(search));
+      const tbody = document.getElementById('agents-tbody');
+      tbody.innerHTML = '';
+      for (const a of data.agents) {
+        const tr = document.createElement('tr');
+        const cells = [
+          a.name, a.level, fmt(Math.floor(a.gold)), fmt(a.gems),
+          fmt(a.power_score), a.karma, shortDate(a.created_at)
+        ];
+        for (const c of cells) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        const actTd = document.createElement('td');
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => openEditAgent(a));
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-sm btn-danger';
+        delBtn.textContent = 'Del';
+        delBtn.style.marginLeft = '4px';
+        delBtn.addEventListener('click', () => confirmDeleteAgent(a.id, a.name, page));
+        actTd.appendChild(editBtn);
+        actTd.appendChild(delBtn);
+        tr.appendChild(actTd);
+        tbody.appendChild(tr);
+      }
+      renderPagination('agents-pagination', data.total, data.limit, data.page, loadAgents);
+    } catch (e) {
+      toast('Failed to load agents', 'error');
+    }
+  }
+
+  function openEditAgent(agent) {
+    const fields = ['gold','gems','level','xp','karma','energy','attack_power','defense_power','click_power','idle_rate','skill_points','max_energy'];
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    const title = document.createElement('h3');
+    title.textContent = 'Edit: ' + agent.name;
+    modal.appendChild(title);
+
+    const inputs = {};
+    for (const f of fields) {
+      const lbl = document.createElement('label');
+      lbl.textContent = f;
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.value = agent[f] != null ? agent[f] : '';
+      inputs[f] = inp;
+      modal.appendChild(lbl);
+      modal.appendChild(inp);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => overlay.remove());
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-primary';
+    saveBtn.style.width = 'auto';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', async () => {
+      const body = {};
+      for (const f of fields) {
+        const v = inputs[f].value.trim();
+        if (v !== '' && Number(v) !== Number(agent[f])) body[f] = Number(v);
+      }
+      if (Object.keys(body).length === 0) { overlay.remove(); return; }
+      try {
+        await api('/admin/api/agents/' + agent.id, { method: 'PUT', body: JSON.stringify(body) });
+        toast('Agent updated', 'success');
+        overlay.remove();
+        loadAgents(1);
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    });
+    actions.appendChild(cancelBtn);
+    actions.appendChild(saveBtn);
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
+
+  function confirmDeleteAgent(id, name, page) {
+    if (!confirm('Delete agent "' + name + '"? This cannot be undone.')) return;
+    api('/admin/api/agents/' + id, { method: 'DELETE' })
+      .then(() => { toast('Agent deleted', 'success'); loadAgents(page); })
+      .catch(e => toast(e.message, 'error'));
+  }
+
+  // --- Alliances ---
+  async function loadAlliances(page) {
+    try {
+      const data = await api('/admin/api/alliances?page=' + page + '&limit=20');
+      const tbody = document.getElementById('alliances-tbody');
+      tbody.innerHTML = '';
+      for (const a of data.alliances) {
+        const tr = document.createElement('tr');
+        const cells = [a.name, a.leader_name, a.member_count, a.level, fmt(a.treasury)];
+        for (const c of cells) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        const actTd = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-sm btn-danger';
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', () => {
+          if (!confirm('Delete alliance "' + a.name + '"?')) return;
+          api('/admin/api/alliances/' + a.id, { method: 'DELETE' })
+            .then(() => { toast('Alliance deleted', 'success'); loadAlliances(page); })
+            .catch(e => toast(e.message, 'error'));
+        });
+        actTd.appendChild(delBtn);
+        tr.appendChild(actTd);
+        tbody.appendChild(tr);
+      }
+      renderPagination('alliances-pagination', data.total, data.limit, data.page, loadAlliances);
+    } catch (e) {
+      toast('Failed to load alliances', 'error');
+    }
+  }
+
+  // --- Market ---
+  document.getElementById('market-filter-btn').addEventListener('click', () => loadMarket(1));
+
+  async function loadMarket(page) {
+    try {
+      const status = document.getElementById('market-status').value;
+      const data = await api('/admin/api/market?page=' + page + '&limit=20&status=' + status);
+      const tbody = document.getElementById('market-tbody');
+      tbody.innerHTML = '';
+      for (const o of data.orders) {
+        const tr = document.createElement('tr');
+        const cells = [shortId(o.id), o.side, fmt(o.price), fmt(o.quantity), fmt(o.filled), o.status, shortDate(o.created_at)];
+        for (const c of cells) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        const actTd = document.createElement('td');
+        if (o.status === 'open') {
+          const cancelBtn = document.createElement('button');
+          cancelBtn.className = 'btn btn-sm btn-danger';
+          cancelBtn.textContent = 'Cancel';
+          cancelBtn.addEventListener('click', () => {
+            api('/admin/api/market/' + o.id + '/cancel', { method: 'POST' })
+              .then(() => { toast('Order cancelled', 'success'); loadMarket(page); })
+              .catch(e => toast(e.message, 'error'));
+          });
+          actTd.appendChild(cancelBtn);
+        }
+        tr.appendChild(actTd);
+        tbody.appendChild(tr);
+      }
+      renderPagination('market-pagination', data.total, data.limit, data.page, loadMarket);
+    } catch (e) {
+      toast('Failed to load market', 'error');
+    }
+  }
+
+  // --- Chat ---
+  async function loadChat(page) {
+    try {
+      const data = await api('/admin/api/chat?page=' + page + '&limit=50');
+      const tbody = document.getElementById('chat-tbody');
+      tbody.innerHTML = '';
+      for (const m of data.messages) {
+        const tr = document.createElement('tr');
+        const nameTd = document.createElement('td');
+        nameTd.textContent = m.agent_name || shortId(m.agent_id);
+        tr.appendChild(nameTd);
+        const msgTd = document.createElement('td');
+        msgTd.textContent = m.message;
+        msgTd.style.maxWidth = '400px';
+        msgTd.style.overflow = 'hidden';
+        msgTd.style.textOverflow = 'ellipsis';
+        msgTd.style.whiteSpace = 'nowrap';
+        tr.appendChild(msgTd);
+        const timeTd = document.createElement('td');
+        timeTd.textContent = shortDate(m.created_at);
+        tr.appendChild(timeTd);
+        const actTd = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-sm btn-danger';
+        delBtn.textContent = 'Del';
+        delBtn.addEventListener('click', () => {
+          api('/admin/api/chat/' + m.id, { method: 'DELETE' })
+            .then(() => { toast('Message deleted', 'success'); loadChat(page); })
+            .catch(e => toast(e.message, 'error'));
+        });
+        actTd.appendChild(delBtn);
+        tr.appendChild(actTd);
+        tbody.appendChild(tr);
+      }
+      renderPagination('chat-pagination', data.total, data.limit, data.page, loadChat);
+    } catch (e) {
+      toast('Failed to load chat', 'error');
+    }
+  }
+
+  // --- PvP ---
+  async function loadPvp(page) {
+    try {
+      const data = await api('/admin/api/pvp?page=' + page + '&limit=50');
+      const tbody = document.getElementById('pvp-tbody');
+      tbody.innerHTML = '';
+      for (const b of data.battles) {
+        const tr = document.createElement('tr');
+        const cells = [
+          shortId(b.attacker_id), shortId(b.defender_id),
+          fmt(b.attacker_power), fmt(b.defender_power),
+          shortId(b.winner_id), fmt(b.gold_transferred),
+          shortDate(b.created_at)
+        ];
+        for (const c of cells) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      renderPagination('pvp-pagination', data.total, data.limit, data.page, loadPvp);
+    } catch (e) {
+      toast('Failed to load PvP log', 'error');
+    }
+  }
+
+  // --- Events ---
+  async function loadEvents(page) {
+    try {
+      const data = await api('/admin/api/events?page=' + page + '&limit=20');
+      const tbody = document.getElementById('events-tbody');
+      tbody.innerHTML = '';
+      for (const ev of data.events) {
+        const tr = document.createElement('tr');
+        const cells = [shortId(ev.id), ev.type, shortDate(ev.starts_at), shortDate(ev.ends_at), ev.requires_response ? 'Yes' : 'No'];
+        for (const c of cells) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      renderPagination('events-pagination', data.total, data.limit, data.page, loadEvents);
+    } catch (e) {
+      toast('Failed to load events', 'error');
+    }
+  }
+
+  // --- World Bosses ---
+  async function loadWorldBosses(page) {
+    try {
+      const data = await api('/admin/api/world-bosses?page=' + page + '&limit=20');
+      const tbody = document.getElementById('world-bosses-tbody');
+      tbody.innerHTML = '';
+      for (const b of data.bosses) {
+        const tr = document.createElement('tr');
+        const cells = [shortId(b.id), b.status, fmt(b.current_hp), shortDate(b.spawned_at), shortDate(b.expires_at)];
+        for (const c of cells) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      renderPagination('world-bosses-pagination', data.total, data.limit, data.page, loadWorldBosses);
+    } catch (e) {
+      toast('Failed to load world bosses', 'error');
+    }
+  }
+
+  // --- Dungeons ---
+  async function loadDungeons(page) {
+    try {
+      const data = await api('/admin/api/dungeons?page=' + page + '&limit=50');
+      const tbody = document.getElementById('dungeons-tbody');
+      tbody.innerHTML = '';
+      for (const r of data.runs) {
+        const tr = document.createElement('tr');
+        const rewardStr = r.rewards ? (typeof r.rewards === 'string' ? r.rewards : JSON.stringify(r.rewards)) : '-';
+        const cells = [
+          shortId(r.agent_id), r.floor, r.monster_name || '-',
+          r.is_boss ? 'Yes' : 'No', r.success ? 'Win' : 'Loss',
+          rewardStr, shortDate(r.created_at)
+        ];
+        for (const c of cells) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      renderPagination('dungeons-pagination', data.total, data.limit, data.page, loadDungeons);
+    } catch (e) {
+      toast('Failed to load dungeon log', 'error');
+    }
+  }
+
+  // --- Settings: Change Password ---
+  document.getElementById('change-pw-btn').addEventListener('click', async () => {
+    const currentPassword = document.getElementById('settings-current-pw').value;
+    const newPassword = document.getElementById('settings-new-pw').value;
+    const confirmPw = document.getElementById('settings-confirm-pw').value;
+    if (!currentPassword || !newPassword) return toast('Fill in all fields', 'error');
+    if (newPassword !== confirmPw) return toast('New passwords do not match', 'error');
+    if (newPassword.length < 6) return toast('Password must be at least 6 characters', 'error');
+    try {
+      await api('/admin/api/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
+      toast('Password changed successfully', 'success');
+      document.getElementById('settings-current-pw').value = '';
+      document.getElementById('settings-new-pw').value = '';
+      document.getElementById('settings-confirm-pw').value = '';
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  });
+
+  // --- Init: try to access dashboard to check if already logged in ---
+  (async function init() {
+    try {
+      await api('/admin/api/dashboard');
+      showApp();
+    } catch {
+      showLogin();
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
